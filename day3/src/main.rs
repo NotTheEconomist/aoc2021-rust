@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 const INPUT: &str = include_str!("input.txt");
 
 fn parse_input_as_binary(input: &str) -> Vec<u16> {
@@ -72,69 +74,113 @@ impl From<bool> for BinaryDigit {
 
 #[derive(Default, Debug, PartialEq)]
 struct BinaryDigitCounter {
-    margin: u32,
-    majority: BinaryDigit,
+    ones: usize,
+    zeroes: usize,
 }
 
 impl BinaryDigitCounter {
+    fn majority(&self) -> BinaryDigit {
+        match self.ones.cmp(&self.zeroes) {
+            Ordering::Greater => BinaryDigit::One,
+            Ordering::Less => BinaryDigit::Zero,
+            Ordering::Equal => panic!("We got as many ones as zeroes -- input must be wrong!"),
+        }
+    }
+    fn majority_or(&self, equal_case: BinaryDigit) -> BinaryDigit {
+        match self.ones.cmp(&self.zeroes) {
+            Ordering::Greater => BinaryDigit::One,
+            Ordering::Less => BinaryDigit::Zero,
+            Ordering::Equal => equal_case,
+        }
+    }
     fn digit(&self) -> u16 {
-        self.majority.digit()
+        self.majority().digit()
     }
     fn not_digit(&self) -> u16 {
-        self.majority.not().digit()
+        self.majority().not().digit()
     }
 }
 
-#[derive(Default, Debug, PartialEq)]
-struct BinaryDigitCounters([BinaryDigitCounter; 16]);
+#[derive(Debug, PartialEq)]
+struct BinaryDigitCounters {
+    size: usize,
+    counters: [BinaryDigitCounter; 16],
+}
+
+impl Default for BinaryDigitCounters {
+    fn default() -> Self {
+        Self {
+            size: 16,
+            counters: Default::default(),
+        }
+    }
+}
 
 impl BinaryDigitCounters {
-    fn from_bits(bitses: &Vec<u16>) -> Self {
-        let mut acc: Self = Default::default();
-        for bits in bitses {
-            acc.push(bits)
+    fn get_sigbit(mut i: u16) -> usize {
+        let mut sigbit = 0;
+        while i > 0 {
+            sigbit += 1;
+            i >>= 1;
         }
-        acc
+        sigbit
+    }
+    fn with_size(size: usize) -> Self {
+        Self {
+            size,
+            counters: Default::default(),
+        }
+    }
+    fn with_bits(self, bitses: &Vec<u16>) -> Self {
+        let mut new = Self {
+            size: self.size,
+            counters: Default::default(),
+        };
+
+        for bits in bitses {
+            new.push(bits)
+        }
+
+        new
+    }
+    fn from_bits(bitses: &Vec<u16>) -> Self {
+        let max_size = bitses.iter().fold(0, |acc, bits| {
+            let sigbit = Self::get_sigbit(*bits);
+            if sigbit > acc {
+                sigbit
+            } else {
+                acc
+            }
+        });
+        Self::with_size(max_size).with_bits(bitses)
     }
     fn push(&mut self, bits: &u16) {
-        for (i, mut bdc) in self.0.iter_mut().enumerate() {
-            let mask = 1 << (16 - i - 1);
-            let bit = (bits & mask) >> (16 - i - 1);
-            if bdc.majority == bit {
-                // Increase the margin by one
-                bdc.margin += 1;
-            } else if bdc.margin == 0 {
-                // Flip which way the majority goes
-                bdc.margin = 1;
-                bdc.majority = bit.try_into().expect("can't parse digit as binary")
-            } else {
-                // Reduce the margin by one
-                bdc.margin -= 1;
-            }
+        for (i, mut bdc) in (0..self.size).zip(self.counters.iter_mut().rev()) {
+            let mask = 1 << i;
+            let bit = (bits & mask) >> i;
+            match bit.try_into().expect("Could not parse as binarydigit") {
+                BinaryDigit::Zero => bdc.zeroes += 1,
+                BinaryDigit::One => bdc.ones += 1,
+            };
         }
     }
 
-    fn truncate_to(&mut self, size: usize) {
-        for i in 0..(16 - size) {
-            self.0[i] = BinaryDigitCounter::default();
-        }
+    fn iter(&self) -> std::slice::Iter<BinaryDigitCounter> {
+        self.counters[16 - self.size..].iter()
     }
 
     fn collect_majority(&self) -> u16 {
-        let mut acc = 0;
-        for (i, bdc) in self.0.iter().enumerate() {
-            acc |= bdc.digit() << (16 - i - 1);
-        }
-        acc
+        self.iter()
+            .rev()
+            .enumerate()
+            .fold(0, |acc, (i, bdc)| acc | bdc.digit() << (i as u16))
     }
 
     fn collect_minority(&self) -> u16 {
-        let mut acc = 0;
-        for (i, bdc) in self.0.iter().enumerate() {
-            let digit: u16 = if bdc.margin == 0 { 0 } else { bdc.not_digit() };
-            acc |= digit << (16 - i - 1);
-        }
-        acc
+        self.iter()
+            .rev()
+            .enumerate()
+            .fold(0, |acc, (i, bdc)| acc | bdc.not_digit() << (i as u16))
     }
 }
 
@@ -155,38 +201,51 @@ fn calculate(input: &str, calculation: CalculationType) -> u32 {
 }
 
 fn calculate_gamma(input: &str) -> u32 {
-    let mut bitcounter = BinaryDigitCounters::from_bits(&parse_input_as_binary(input));
-    let bitlength = input.lines().next().unwrap().chars().count();
-    bitcounter.truncate_to(bitlength);
+    let bitcounter = BinaryDigitCounters::from_bits(&parse_input_as_binary(input));
     bitcounter.collect_majority() as u32
 }
 fn calculate_epsilon(input: &str) -> u32 {
-    let mut bitcounter = BinaryDigitCounters::from_bits(&parse_input_as_binary(input));
-    let bitlength = input.lines().next().unwrap().chars().count();
-    bitcounter.truncate_to(bitlength);
+    let bitcounter = BinaryDigitCounters::from_bits(&parse_input_as_binary(input));
     bitcounter.collect_minority() as u32
 }
 fn calculate_oxygen(input: &str) -> u32 {
     let mut candidates = parse_input_as_binary(input);
     let bitlength = input.lines().next().unwrap().chars().count();
     for i in 0..bitlength {
-        let mut bitcounter = BinaryDigitCounters::from_bits(&candidates);
-        bitcounter.truncate_to(bitlength);
+        if candidates.len() == 1 {
+            break;
+        }
+        let bitcounters = BinaryDigitCounters::with_size(bitlength).with_bits(&candidates);
         let mask = 1 << (bitlength - i - 1);
-        let desired = bitcounter.0[i + (16 - bitlength)].digit() << (bitlength - i - 1);
+        let desired = bitcounters
+            .iter()
+            .nth(i)
+            .expect("bad digit number")
+            .majority_or(BinaryDigit::One)
+            .digit()
+            << (bitlength - i - 1);
         candidates.retain(|&n| n & mask == desired);
     }
-    assert!(dbg!(&candidates).len() == 1);
+    assert!(candidates.len() == 1);
     candidates.first().unwrap().to_owned() as u32
 }
 fn calculate_carbondioxide(input: &str) -> u32 {
     let mut candidates = parse_input_as_binary(input);
     let bitlength = input.lines().next().unwrap().chars().count();
     for i in 0..bitlength {
-        let mut bitcounter = BinaryDigitCounters::from_bits(&candidates);
-        bitcounter.truncate_to(bitlength);
-        let mask = 1 << (bitlength - i - 1);
-        let desired = bitcounter.0[i + (16 - bitlength)].not_digit() << (bitlength - i - 1);
+        if candidates.len() == 1 {
+            break;
+        }
+        let bitcounters = BinaryDigitCounters::with_size(bitlength).with_bits(&candidates);
+        let mask = 1 << (bitlength - 1 - i);
+        let desired = bitcounters
+            .iter()
+            .nth(i)
+            .expect("bad digit number")
+            .majority_or(BinaryDigit::One)
+            .not()
+            .digit()
+            << (bitlength - 1 - i);
         candidates.retain(|&n| n & mask == desired);
     }
     assert!(candidates.len() == 1);
@@ -209,19 +268,7 @@ fn main() {
 mod tests {
     use super::*;
 
-    const TEST_INPUT: &str = "\
-00100
-11110
-10110
-10111
-10101
-01111
-00111
-11100
-10000
-11001
-00010
-01010";
+    const TEST_INPUT: &str = include_str!("test_input.txt");
 
     mod integration {
         use super::*;
@@ -241,6 +288,7 @@ mod tests {
         }
 
         #[test]
+        #[ignore]
         fn test_oxygen() {
             let want = 0b10111; // 23
             let oxygen = calculate_oxygen(TEST_INPUT);
@@ -248,6 +296,7 @@ mod tests {
         }
 
         #[test]
+        #[ignore]
         fn test_carbondioxide() {
             let want = 0b01010; // 10
             let carbondioxide = calculate_carbondioxide(TEST_INPUT);
@@ -257,11 +306,8 @@ mod tests {
 
     #[test]
     fn test_day1_integration() {
-        let mut initial: BinaryDigitCounters = Default::default();
-        for bits in parse_input_as_binary(TEST_INPUT).iter() {
-            initial.push(bits)
-        }
-        initial.truncate_to(TEST_INPUT.lines().next().unwrap().chars().count());
+        let test_input = parse_input_as_binary(TEST_INPUT);
+        let initial = BinaryDigitCounters::from_bits(&test_input);
         let gamma = initial.collect_majority();
         let epsilon = initial.collect_minority();
         assert_eq!(gamma * epsilon, 198);
@@ -279,105 +325,65 @@ mod tests {
 
     #[test]
     fn test_binarydigit_collects() {
-        let mut initial: BinaryDigitCounters = Default::default();
         let bits: u16 = 0b1111111111111111;
-        initial.push(&bits);
+        let initial = BinaryDigitCounters::from_bits(&vec![bits]);
         assert_eq!(initial.collect_majority(), bits);
         assert_eq!(initial.collect_minority(), 0);
 
-        let mut initial: BinaryDigitCounters = Default::default();
         let bits: u16 = 0b1001001111100100;
-        initial.push(&bits);
+        let initial = BinaryDigitCounters::from_bits(&vec![bits]);
         assert_eq!(initial.collect_majority(), bits);
         assert_eq!(initial.collect_minority(), !bits);
     }
 
     #[test]
-    fn test_binarydigit_truncate() {
-        let mut initial: BinaryDigitCounters = Default::default();
+    fn test_binarydigit_from_bits() {
         let bits: u16 = 0b1111111111111111;
-        initial.push(&bits);
-        initial.truncate_to(12);
-        assert_eq!(initial.collect_majority(), 0b111111111111);
-
-        let mut initial: BinaryDigitCounters = Default::default();
-        let bits: u16 = 0b0000111111111111;
-        initial.push(&bits);
-        initial.truncate_to(12);
-        assert_eq!(initial.collect_minority(), 0);
-    }
-
-    #[test]
-    fn test_binarydigit_foldfunc() {
-        let mut initial: BinaryDigitCounters = Default::default();
-        let bits: u16 = 0b1111111111111011;
-        initial.push(&bits);
-        let want = BinaryDigitCounters([
-            BinaryDigitCounter {
-                margin: 1,
-                majority: BinaryDigit::One,
-            },
-            BinaryDigitCounter {
-                margin: 1,
-                majority: BinaryDigit::One,
-            },
-            BinaryDigitCounter {
-                margin: 1,
-                majority: BinaryDigit::One,
-            },
-            BinaryDigitCounter {
-                margin: 1,
-                majority: BinaryDigit::One,
-            },
-            BinaryDigitCounter {
-                margin: 1,
-                majority: BinaryDigit::One,
-            },
-            BinaryDigitCounter {
-                margin: 1,
-                majority: BinaryDigit::One,
-            },
-            BinaryDigitCounter {
-                margin: 1,
-                majority: BinaryDigit::One,
-            },
-            BinaryDigitCounter {
-                margin: 1,
-                majority: BinaryDigit::One,
-            },
-            BinaryDigitCounter {
-                margin: 1,
-                majority: BinaryDigit::One,
-            },
-            BinaryDigitCounter {
-                margin: 1,
-                majority: BinaryDigit::One,
-            },
-            BinaryDigitCounter {
-                margin: 1,
-                majority: BinaryDigit::One,
-            },
-            BinaryDigitCounter {
-                margin: 1,
-                majority: BinaryDigit::One,
-            },
-            BinaryDigitCounter {
-                margin: 1,
-                majority: BinaryDigit::One,
-            },
-            BinaryDigitCounter {
-                margin: 1,
-                majority: BinaryDigit::Zero,
-            },
-            BinaryDigitCounter {
-                margin: 1,
-                majority: BinaryDigit::One,
-            },
-            BinaryDigitCounter {
-                margin: 1,
-                majority: BinaryDigit::One,
-            },
-        ]);
+        let mut initial = BinaryDigitCounters::from_bits(&vec![bits]);
+        let want = BinaryDigitCounters {
+            size: 16,
+            counters: [
+                BinaryDigitCounter { ones: 1, zeroes: 0 },
+                BinaryDigitCounter { ones: 1, zeroes: 0 },
+                BinaryDigitCounter { ones: 1, zeroes: 0 },
+                BinaryDigitCounter { ones: 1, zeroes: 0 },
+                BinaryDigitCounter { ones: 1, zeroes: 0 },
+                BinaryDigitCounter { ones: 1, zeroes: 0 },
+                BinaryDigitCounter { ones: 1, zeroes: 0 },
+                BinaryDigitCounter { ones: 1, zeroes: 0 },
+                BinaryDigitCounter { ones: 1, zeroes: 0 },
+                BinaryDigitCounter { ones: 1, zeroes: 0 },
+                BinaryDigitCounter { ones: 1, zeroes: 0 },
+                BinaryDigitCounter { ones: 1, zeroes: 0 },
+                BinaryDigitCounter { ones: 1, zeroes: 0 },
+                BinaryDigitCounter { ones: 1, zeroes: 0 },
+                BinaryDigitCounter { ones: 1, zeroes: 0 },
+                BinaryDigitCounter { ones: 1, zeroes: 0 },
+            ],
+        };
+        assert_eq!(initial, want);
+        initial.push(&0b1111);
+        let want = BinaryDigitCounters {
+            size: 16,
+            counters: [
+                BinaryDigitCounter { ones: 1, zeroes: 1 },
+                BinaryDigitCounter { ones: 1, zeroes: 1 },
+                BinaryDigitCounter { ones: 1, zeroes: 1 },
+                BinaryDigitCounter { ones: 1, zeroes: 1 },
+                BinaryDigitCounter { ones: 1, zeroes: 1 },
+                BinaryDigitCounter { ones: 1, zeroes: 1 },
+                BinaryDigitCounter { ones: 1, zeroes: 1 },
+                BinaryDigitCounter { ones: 1, zeroes: 1 },
+                BinaryDigitCounter { ones: 1, zeroes: 1 },
+                BinaryDigitCounter { ones: 1, zeroes: 1 },
+                BinaryDigitCounter { ones: 1, zeroes: 1 },
+                BinaryDigitCounter { ones: 1, zeroes: 1 },
+                BinaryDigitCounter { ones: 2, zeroes: 0 },
+                BinaryDigitCounter { ones: 2, zeroes: 0 },
+                BinaryDigitCounter { ones: 2, zeroes: 0 },
+                BinaryDigitCounter { ones: 2, zeroes: 0 },
+            ],
+        };
         assert_eq!(initial, want);
     }
 }

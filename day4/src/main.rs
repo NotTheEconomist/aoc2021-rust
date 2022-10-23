@@ -1,9 +1,12 @@
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
+use std::fmt::Display;
+
+#[derive(Clone, Debug, Eq, PartialEq, Default)]
 struct BingoCell {
     value: u32,
     marked: bool,
 }
 impl BingoCell {
+    #[allow(unused)]
     fn new(value: u32) -> Self {
         Self {
             value,
@@ -12,8 +15,30 @@ impl BingoCell {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 struct BingoBoard([BingoCell; 25]);
+impl Display for BingoBoard {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let formatted = self
+            .rows()
+            .into_iter()
+            .map(|row| {
+                row.into_iter()
+                    .map(|cell| {
+                        if cell.marked {
+                            format!("*{:<3}", cell.value)
+                        } else {
+                            format!("{:<4}", cell.value)
+                        }
+                    })
+                    .collect::<Vec<String>>()
+                    .join(" ")
+            })
+            .collect::<Vec<String>>()
+            .join("\n");
+        f.write_str(&formatted)
+    }
+}
 impl BingoBoard {
     fn new(values: [u32; 25]) -> Self {
         let mut cells: [BingoCell; 25] = Default::default();
@@ -22,23 +47,23 @@ impl BingoBoard {
         }
         Self(cells)
     }
-    fn rows(&self) -> Vec<Vec<BingoCell>> {
+    fn rows(&self) -> Vec<Vec<&BingoCell>> {
         vec![
-            self.0[0..5].to_vec(),
-            self.0[5..10].to_vec(),
-            self.0[10..15].to_vec(),
-            self.0[15..20].to_vec(),
-            self.0[20..25].to_vec(),
+            self.0[0..5].iter().collect(),
+            self.0[5..10].iter().collect(),
+            self.0[10..15].iter().collect(),
+            self.0[15..20].iter().collect(),
+            self.0[20..25].iter().collect(),
         ]
     }
 
-    fn cols(&self) -> Vec<Vec<BingoCell>> {
+    fn cols(&self) -> Vec<Vec<&BingoCell>> {
         (0..5)
             .map(|i| {
                 self.rows()
-                    .iter()
-                    .map(|row| *row.get(i).unwrap())
-                    .collect::<Vec<BingoCell>>()
+                    .into_iter()
+                    .map(|mut row| row.remove(i))
+                    .collect::<Vec<&BingoCell>>()
             })
             .collect()
     }
@@ -49,25 +74,175 @@ impl BingoBoard {
         lines.any(|line| line.iter().all(|cell| cell.marked))
     }
 
-    fn mark_number(&self, number: u32) {
-        for mut cell in self.0 {
+    fn mark_number(&mut self, number: u32) {
+        for mut cell in self.0.iter_mut() {
             if cell.value == number {
                 cell.marked = true;
             }
         }
     }
 
-    fn unmarked_numbers(&self) -> Vec<BingoCell> {
-        self.0.into_iter().filter(|cell| !cell.marked).collect()
+    fn unmarked_numbers(&self) -> Vec<&BingoCell> {
+        self.0.iter().filter(|cell| !cell.marked).collect()
     }
 }
+
+const INPUT: &str = include_str!("input.txt");
+
+#[derive(Clone, PartialEq, Eq, Debug)]
+struct Input {
+    numbers: Vec<u32>,
+    boards: Vec<BingoBoard>,
+}
+
+impl Input {
+    fn parse(input: &'static str) -> Result<Self, String> {
+        let mut lines = input.lines();
+        let numbers: Vec<u32> = lines
+            .next()
+            .unwrap()
+            .split(',')
+            .map(|n| n.parse().unwrap())
+            .collect();
+        let mut boards: Vec<BingoBoard> = Vec::new();
+        loop {
+            // What follows is N many boards with blank lines separating them
+            if lines.next().is_none() {
+                break;
+            }
+            let mut boardlines = [0; 25];
+            let mut i = 0;
+            (0..5).for_each(|_| {
+                lines
+                    .next()
+                    .expect("Invalid input")
+                    .split_ascii_whitespace()
+                    .map(|n| n.parse().unwrap())
+                    .for_each(|n| {
+                        boardlines[i] = n;
+                        i += 1
+                    });
+            });
+            boards.push(BingoBoard::new(boardlines));
+        }
+
+        Ok(Self { numbers, boards })
+    }
+}
+
+fn solve_part1(input: Input) -> Option<u32> {
+    let mut boards = input.boards.clone();
+    let numbers = input.numbers;
+    for number in numbers {
+        for board in boards.iter_mut() {
+            board.mark_number(number);
+            if board.is_winner() {
+                let score = board
+                    .unmarked_numbers()
+                    .iter()
+                    .map(|cell| cell.value)
+                    .reduce(std::ops::Add::add)
+                    .expect("board cannot be empty")
+                    * number;
+                return Some(score);
+            }
+        }
+    }
+    None
+}
+
+fn solve_part2(input: Input) -> Option<u32> {
+    let mut boards = input.boards.clone();
+    let numbers = input.numbers;
+    let mut winners: u32 = 0;
+    let total_boards = boards.len() as u32;
+    for number in numbers {
+        for board in boards.iter_mut() {
+            if board.is_winner() {
+                continue;
+            }
+            // println!("Marking {} on board:\n{}", number, board);
+            board.mark_number(number);
+            if board.is_winner() {
+                winners += 1;
+                if winners == total_boards {
+                    let score = board
+                        .unmarked_numbers()
+                        .iter()
+                        .map(|cell| cell.value)
+                        .reduce(std::ops::Add::add)
+                        .expect("board cannot be empty")
+                        * number;
+                    return Some(score);
+                }
+            }
+        }
+    }
+    None
+}
+
 fn main() {
-    println!("Hello, world!");
+    let input = Input::parse(INPUT).expect("failed to parse input");
+    let part1 = solve_part1(input.clone()).expect("invalid input");
+    println!("part1: {}", part1);
+    let part2 = solve_part2(input).expect("invalid input");
+    println!("part2: {}", part2);
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
+
+    const INPUT: &str = include_str!("test_input.txt");
+
+    #[test]
+    fn test_solve_part1() {
+        let input = Input::parse(INPUT).expect("failed to parse input");
+        let score = solve_part1(input).expect("test game should finish with a winner");
+        assert_eq!(score, 4512);
+    }
+
+    #[test]
+    fn test_solve_part2() {
+        let input = Input::parse(INPUT).expect("failed to parse input");
+        let score = solve_part2(input).expect("test game should finish with a final winner");
+        assert_eq!(score, 1924);
+    }
+
+    #[test]
+    fn test_parse() {
+        let got = Input::parse(INPUT).expect("Failed to parse input completely");
+        let want = Input {
+            numbers: vec![
+                7, 4, 9, 5, 11, 17, 23, 2, 0, 14, 21, 24, 10, 16, 13, 6, 15, 25, 12, 22, 18, 20, 8,
+                19, 3, 26, 1,
+            ],
+            boards: vec![
+                BingoBoard::new([
+                    22, 13, 17, 11, 0, 8, 2, 23, 4, 24, 21, 9, 14, 16, 7, 6, 10, 3, 18, 5, 1, 12,
+                    20, 15, 19,
+                ]),
+                BingoBoard::new([
+                    3, 15, 0, 2, 22, 9, 18, 13, 17, 5, 19, 8, 7, 25, 23, 20, 11, 10, 24, 4, 14, 21,
+                    16, 12, 6,
+                ]),
+                BingoBoard::new([
+                    14, 21, 17, 24, 4, 10, 16, 15, 9, 19, 18, 8, 23, 26, 20, 22, 11, 13, 6, 5, 2,
+                    0, 12, 3, 7,
+                ]),
+            ],
+        };
+        assert_eq!(got, want);
+    }
+
+    #[test]
+    fn test_mark_board() {
+        let mut board = BingoBoard::new([
+            1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+        ]);
+        board.mark_number(1);
+        assert!(board.0[0].marked);
+    }
 
     #[test]
     fn test_win_condition() {
@@ -233,8 +408,8 @@ mod test {
                 BingoCell::new(25),
             ],
         ];
-        for (gotcol, wantcol) in board.cols().iter().zip(want_board.iter()) {
-            for (gotcell, wantcell) in gotcol.iter().zip(wantcol.iter()) {
+        for (gotcol, wantcol) in board.cols().into_iter().zip(want_board.into_iter()) {
+            for (gotcell, wantcell) in gotcol.into_iter().zip(wantcol.iter()) {
                 assert_eq!(gotcell, wantcell);
             }
         }
@@ -282,8 +457,8 @@ mod test {
                 BingoCell::new(25),
             ],
         ];
-        for (gotrow, wantrow) in board.rows().iter().zip(want_board.iter()) {
-            for (gotcell, wantcell) in gotrow.iter().zip(wantrow.iter()) {
+        for (gotrow, wantrow) in board.rows().into_iter().zip(want_board.into_iter()) {
+            for (gotcell, wantcell) in gotrow.into_iter().zip(wantrow.iter()) {
                 assert_eq!(gotcell, wantcell);
             }
         }

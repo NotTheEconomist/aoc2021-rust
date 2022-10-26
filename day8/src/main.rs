@@ -131,9 +131,6 @@ impl SevenSegmentDisplay {
             .try_into()
             .unwrap()
     }
-    fn digits_as_numbers(&self) -> [u64; 4] {
-        self.digits().map(|d| d.into())
-    }
 }
 
 /// A digit on a seven-segment-display
@@ -189,16 +186,6 @@ impl From<Digit> for u64 {
 struct WiringSegment(u8);
 
 impl WiringSegment {
-    fn has_segment(&self, c: char) -> bool {
-        // find the amount to bitshift
-        let bitposition = ('a'..='g')
-            .enumerate()
-            .find_map(|(i, ch)| if c == ch { Some(i) } else { None })
-            .expect("c must be a character between a and h");
-
-        self.0 & (1 << bitposition) > 1
-    }
-
     fn count_segments(&self) -> usize {
         let mut inner = self.0;
         let mut count = 0;

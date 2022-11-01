@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Display, iter::Zip, slice::Iter, str::FromStr};
+use std::{collections::HashMap, str::FromStr};
 
 const INPUT: &str = include_str!("input.txt");
 
@@ -153,63 +153,6 @@ impl PolymerCounter {
     }
 }
 
-struct PolymerChain {
-    polymer: Vec<char>,
-    insertion_table: HashMap<(char, char), char>,
-    iterations: u64,
-}
-
-impl From<Input> for PolymerChain {
-    fn from(input: Input) -> Self {
-        Self {
-            polymer: input.polymer_template.chars().collect(),
-            insertion_table: input.insertion_table,
-            iterations: 0,
-        }
-    }
-}
-
-impl Display for PolymerChain {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.polymer.iter().collect::<String>())
-    }
-}
-
-impl PolymerChain {
-    fn iter(&self) -> Zip<Iter<char>, Iter<char>> {
-        let (a, mut b) = (self.polymer.iter(), self.polymer.iter());
-        b.next(); // Advance the second iterator once
-        return a.zip(b).into_iter();
-    }
-
-    fn char_counts(self) -> PolymerCounter {
-        let mut counter = HashMap::new();
-        for char in self.polymer.into_iter() {
-            counter.entry(char).and_modify(|e| *e += 1).or_insert(1u64);
-        }
-        PolymerCounter(counter)
-    }
-
-    fn perform_insertions(&mut self) {
-        let insertions: Vec<(usize, char)> = (1usize..)
-            .zip(self.iter())
-            .flat_map(|(idx, (&a, &b))| -> Option<(usize, char)> {
-                if let Some(&insertion_character) = self.insertion_table.get(&(a, b)) {
-                    Some((idx, insertion_character))
-                } else {
-                    None
-                }
-            })
-            .collect();
-        // If we don't reverse this, then we have to account for indexes shifting when
-        // we insert new values. It's easier to just reverse the iterator
-        for (idx, insertion_character) in insertions.into_iter().rev() {
-            self.polymer.insert(idx, insertion_character)
-        }
-        self.iterations += 1;
-    }
-}
-
 #[derive(Clone, Debug)]
 struct Input {
     polymer_template: String,
@@ -278,22 +221,7 @@ mod tests {
     const INPUT: &str = include_str!("test_input.txt");
 
     #[test]
-    fn perform_insertions() {
-        let mut polymer_chain = PolymerChain {
-            polymer: vec!['N', 'N', 'C', 'B'],
-            insertion_table: HashMap::from([
-                (('C', 'B'), 'H'),
-                (('N', 'N'), 'C'),
-                (('N', 'C'), 'B'),
-            ]),
-            iterations: 0,
-        };
-        polymer_chain.perform_insertions();
-        let expected = vec!['N', 'C', 'N', 'B', 'C', 'H', 'B'];
-        assert_eq!(polymer_chain.polymer, expected);
-    }
-
-    #[test]
+    #[allow(non_snake_case)]
     fn perform_insertions_PolymerPairCounter() {
         let mut polymer_pair_counter = PolymerPairCounter {
             doubles: HashMap::from([(('N', 'N'), 1), (('N', 'C'), 1), (('C', 'B'), 1)]),

@@ -20,7 +20,7 @@ impl FromStr for Point {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let (x, y) = s
             .split_once(',')
-            .ok_or(String::from("Can't split line on comma"))?;
+            .ok_or_else(|| String::from("Can't split line on comma"))?;
         Ok(Point {
             x: x.parse()
                 .map_err(|_| String::from("x does not parse to u64"))?,
@@ -40,9 +40,9 @@ impl FromStr for Fold {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let (orientation, value) = s.split_once('=').ok_or(String::from(
-            "Can't split fold between orientation and value",
-        ))?;
+        let (orientation, value) = s
+            .split_once('=')
+            .ok_or_else(|| String::from("Can't split fold between orientation and value"))?;
 
         let value = value
             .parse()
@@ -161,7 +161,7 @@ fn solve_part1(input: Input) -> u64 {
         grid = grid.fold(fold)
     }
 
-    return grid.0.len() as u64;
+    grid.0.len() as u64
 }
 
 fn solve_part2(input: Input) -> Grid {

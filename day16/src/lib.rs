@@ -131,33 +131,21 @@ impl Packet {
                 }),
                 OperatorType::GreaterThan => {
                     if let &[a, b] = self.subpackets().collect::<Vec<&Packet>>().as_slice() {
-                        if a.value() > b.value() {
-                            1
-                        } else {
-                            0
-                        }
+                        (a.value() > b.value()).into()
                     } else {
                         panic!("This should provably not happen");
                     }
                 }
                 OperatorType::LessThan => {
                     if let &[a, b] = self.subpackets().collect::<Vec<&Packet>>().as_slice() {
-                        if a.value() < b.value() {
-                            1
-                        } else {
-                            0
-                        }
+                        (a.value() < b.value()).into()
                     } else {
                         panic!("This should provably not happen");
                     }
                 }
                 OperatorType::EqualTo => {
                     if let &[a, b] = self.subpackets().collect::<Vec<&Packet>>().as_slice() {
-                        if a.value() == b.value() {
-                            1
-                        } else {
-                            0
-                        }
+                        (a.value() == b.value()).into()
                     } else {
                         panic!("This should provably not happen");
                     }
@@ -193,12 +181,8 @@ impl Packet {
                     .collect::<Vec<char>>()
                     .into_iter();
                 let mut subpackets = Vec::new();
-                loop {
-                    if let Some(packet) = Packet::from_iterator(bytes) {
-                        subpackets.push(packet);
-                    } else {
-                        break;
-                    }
+                while let Some(packet) = Packet::from_iterator(bytes) {
+                    subpackets.push(packet);
                 }
                 subpackets
             }

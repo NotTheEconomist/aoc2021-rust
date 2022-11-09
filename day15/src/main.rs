@@ -1,5 +1,3 @@
-use day15;
-
 use petgraph::algo::astar;
 use petgraph::graphmap::UnGraphMap;
 
@@ -44,14 +42,12 @@ fn main() {
     let input = INPUT.parse::<day15::Input>().unwrap();
     let part1 = solve_part1(input.clone());
     println!("part1: {}", part1);
-    let part2 = solve_part2(input.clone());
+    let part2 = solve_part2(input);
     println!("part2: {}", part2);
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     const INPUT: &str = include_str!("test_input.txt");
 
     #[test]

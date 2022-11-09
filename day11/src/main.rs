@@ -163,10 +163,7 @@ impl FromStr for Input {
             .flat_map(|line| line.chars().map(|ch| ch.to_string().parse()))
             .collect::<Result<Vec<_>, ParseIntError>>()
             .map_err(|_| "Failed to parse a character from the input".to_string())?;
-        match values.try_into() {
-            Ok(values) => Ok(Self { values, width }),
-            Err(_) => Err("Input has wrong number of elements".to_string()),
-        }
+        Ok(Self { values, width })
     }
 }
 
@@ -177,7 +174,7 @@ fn solve_part1(input: Input) -> u64 {
 
 fn solve_part2(input: Input) -> u64 {
     let game = OctopusCavern::new(input);
-    let game_width = game.width.clone();
+    let game_width = game.width;
     (1u64..)
         .zip(game.into_iter())
         .filter_map(|(i, flashes)| {
@@ -203,7 +200,7 @@ fn main() {
 mod test {
     use crate::OctopusCavern;
 
-    const INPUT: &'static str = "\
+    const INPUT: &str = "\
 5483143223
 2745854711
 5264556173

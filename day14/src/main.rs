@@ -75,19 +75,19 @@ impl PolymerPairCounter {
                 single_insertion_actions
                     .entry(insertion_char)
                     .and_modify(|e| e.push(InsertionAction::Add(*count)))
-                    .or_insert(vec![InsertionAction::Add(*count)]);
+                    .or_insert_with(|| vec![InsertionAction::Add(*count)]);
                 // Add the to-be-inserted character pairs to the doubles map
                 for tup in [(a, insertion_char), (insertion_char, b)].into_iter() {
                     double_insertion_actions
                         .entry(tup)
                         .and_modify(|e| e.push(InsertionAction::Add(*count)))
-                        .or_insert(vec![InsertionAction::Add(*count)]);
+                        .or_insert_with(|| vec![InsertionAction::Add(*count)]);
                 }
                 // Remove the old pairs from the doubles map
                 double_insertion_actions
                     .entry((a, b))
                     .and_modify(|e| e.push(InsertionAction::Subtract(*count)))
-                    .or_insert(vec![InsertionAction::Subtract(*count)]);
+                    .or_insert_with(|| vec![InsertionAction::Subtract(*count)]);
             }
         }
 
@@ -139,7 +139,7 @@ impl PolymerCounter {
         *self
             .0
             .iter()
-            .max_by(|a, b| a.1.cmp(&b.1))
+            .max_by(|a, b| a.1.cmp(b.1))
             .map(|(_, count)| count)
             .unwrap()
     }
@@ -147,7 +147,7 @@ impl PolymerCounter {
         *self
             .0
             .iter()
-            .min_by(|a, b| a.1.cmp(&b.1))
+            .min_by(|a, b| a.1.cmp(b.1))
             .map(|(_, count)| count)
             .unwrap()
     }

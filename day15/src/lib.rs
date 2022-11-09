@@ -38,7 +38,7 @@ impl IntoWeightedEdge<u32> for Edge {
 
     fn into_weighted_edge(self) -> (Self::NodeId, Self::NodeId, u32) {
         let (from, to) = self.0;
-        let weight = *&to.value;
+        let weight = to.value;
         (from, to, weight)
     }
 }
@@ -84,11 +84,7 @@ impl Input {
                     self.get_point(point.x + 1, point.y),
                 ]
                 .map(|dest| -> Option<Edge> {
-                    if let Some(dest_point) = dest.map(|point| point.clone()) {
-                        Some(Edge::new(point.clone(), dest_point))
-                    } else {
-                        None
-                    }
+                    dest.map(|dest_point| Edge::new(*point, *dest_point))
                 })
                 .into_iter()
                 .flatten()
@@ -214,13 +210,13 @@ mod tests {
             y: 1,
             value: 4,
         };
-        let input = Input(vec![a.clone(), b.clone(), c.clone(), d.clone()]);
+        let input = Input(vec![a, b, c, d]);
 
         for (got, expected) in input.into_edges().into_iter().zip(
             [
-                Edge::new(a.clone(), c.clone()),
-                Edge::new(a, b.clone()),
-                Edge::new(b, d.clone()),
+                Edge::new(a, c),
+                Edge::new(a, b),
+                Edge::new(b, d),
                 Edge::new(c, d),
             ]
             .into_iter(),

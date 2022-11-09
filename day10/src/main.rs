@@ -157,7 +157,7 @@ impl FromStr for Input {
     }
 }
 impl Input {
-    fn iter<'a>(&'a self) -> std::str::Lines {
+    fn iter(&self) -> std::str::Lines {
         self.0.lines()
     }
 }
@@ -174,20 +174,18 @@ fn validate_line(line: &str) -> Result<String, SyntaxError> {
             let closing_symbol = ClosingSymbol::try_from(ch)
                 .expect("Character was neither an opening nor a closing symbol");
             let matching_symbol = closing_symbol.matching();
-            loop {
-                if let Some(opening_symbol) = stack.pop() {
-                    if opening_symbol == matching_symbol {
-                        // There's our match. We've popped it off the stack already.
-                        break;
-                    } else {
-                        // If it doesn't match here, this is a CorruptedLine
-                        return Err(SyntaxError::CorruptedLine(closing_symbol));
-                    }
+            if let Some(opening_symbol) = stack.pop() {
+                if opening_symbol == matching_symbol {
+                    // There's our match. We've popped it off the stack already.
+                    break;
                 } else {
-                    // The inner stack is empty, so our closing symbol doesn't
-                    // match anything. That's a CorruptedLine
+                    // If it doesn't match here, this is a CorruptedLine
                     return Err(SyntaxError::CorruptedLine(closing_symbol));
                 }
+            } else {
+                // The inner stack is empty, so our closing symbol doesn't
+                // match anything. That's a CorruptedLine
+                return Err(SyntaxError::CorruptedLine(closing_symbol));
             }
         }
     }

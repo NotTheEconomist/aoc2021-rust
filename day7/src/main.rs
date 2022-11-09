@@ -16,12 +16,12 @@ enum CalculationMethod {
 }
 
 /// Legacy
-fn total_fuel_cost(positions: &Vec<i64>, target_position: i64) -> u64 {
+fn total_fuel_cost(positions: &[i64], target_position: i64) -> u64 {
     total_fuel_cost_by_calculation(positions, target_position, CalculationMethod::FlatCost)
 }
 
 fn total_fuel_cost_by_calculation(
-    positions: &Vec<i64>,
+    positions: &[i64],
     target_position: i64,
     calculation: CalculationMethod,
 ) -> u64 {

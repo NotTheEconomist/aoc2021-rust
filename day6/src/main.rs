@@ -37,7 +37,6 @@ impl Iterator for State {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.tick();
-        self.tick;
         Some(self.fishes)
     }
 }

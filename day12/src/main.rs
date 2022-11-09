@@ -120,7 +120,7 @@ impl FromStr for Input {
         let mut system: CaveSystem = HashMap::new();
 
         for line in s.lines() {
-            if let Some((from, to)) = line.split_once("-") {
+            if let Some((from, to)) = line.split_once('-') {
                 let from_cave = system
                     .entry(from.to_string())
                     .or_insert(from.parse::<Cave>()?);
@@ -146,22 +146,18 @@ fn solve_part1(input: Input) -> u64 {
         .into_iter()
         .map(|head| vec![head])
         .collect();
-    loop {
-        if let Some(path) = acc.pop() {
-            let cave = &path[&path.len() - 1];
-            let cave = system
-                .get(cave)
-                .expect("Every cave should appear in the system");
-            if cave.size == CaveSize::End {
-                // We've found a path to the exit! Result +=1 and continue
-                result += 1;
-                continue;
-            }
-            for neighbor_path in cave.traverse_path(path, &system).into_iter() {
-                acc.push(neighbor_path);
-            }
-        } else {
-            break;
+    while let Some(path) = acc.pop() {
+        let cave = &path[&path.len() - 1];
+        let cave = system
+            .get(cave)
+            .expect("Every cave should appear in the system");
+        if cave.size == CaveSize::End {
+            // We've found a path to the exit! Result +=1 and continue
+            result += 1;
+            continue;
+        }
+        for neighbor_path in cave.traverse_path(path, &system).into_iter() {
+            acc.push(neighbor_path);
         }
     }
     result
@@ -180,25 +176,21 @@ fn solve_part2(input: Input) -> u64 {
         .into_iter()
         .map(|head| (vec![head], false))
         .collect();
-    loop {
-        if let Some((path, small_cave_to_revisit)) = acc.pop() {
-            let cave = &path[&path.len() - 1];
-            let cave = system
-                .get(cave)
-                .expect("Every cave should appear in the system");
-            if cave.size == CaveSize::End {
-                // We've found a path to the exit! Result +=1 and continue
-                result += 1;
-                continue;
-            }
-            for neighbor_path in cave
-                .traverse_path_part_two((path, small_cave_to_revisit), &system)
-                .into_iter()
-            {
-                acc.push(neighbor_path);
-            }
-        } else {
-            break;
+    while let Some((path, small_cave_to_revisit)) = acc.pop() {
+        let cave = &path[&path.len() - 1];
+        let cave = system
+            .get(cave)
+            .expect("Every cave should appear in the system");
+        if cave.size == CaveSize::End {
+            // We've found a path to the exit! Result +=1 and continue
+            result += 1;
+            continue;
+        }
+        for neighbor_path in cave
+            .traverse_path_part_two((path, small_cave_to_revisit), &system)
+            .into_iter()
+        {
+            acc.push(neighbor_path);
         }
     }
     result
@@ -206,7 +198,7 @@ fn solve_part2(input: Input) -> u64 {
 
 fn main() {
     let input = INPUT.parse::<Input>().expect("Input should parse");
-    let part1 = solve_part1(input.clone());
+    let part1 = solve_part1(input);
     println!("part1: {part1}");
     let input = INPUT.parse::<Input>().expect("Input should parse");
     let part2 = solve_part2(input);
@@ -217,7 +209,7 @@ fn main() {
 mod test {
     use super::*;
 
-    const INPUT: &'static str = "\
+    const INPUT: &str = "\
 dc-end
 HN-start
 start-kj

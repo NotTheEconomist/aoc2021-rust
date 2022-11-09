@@ -88,11 +88,11 @@ where
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut acc = String::new();
-        for line in self.cells.chunks_exact(self.width).into_iter() {
+        for line in self.cells.chunks_exact(self.width) {
             for cell in line {
                 acc.push_str(&format!("{}", cell.value));
             }
-            acc.push_str("\n");
+            acc.push('\n');
         }
         write!(f, "{}", acc.trim_end())
     }
@@ -118,7 +118,7 @@ impl Grid<u8> {
             .chunks_exact(self.width)
             .into_iter()
             .map(|row| -> String {
-                row.into_iter()
+                row.iter()
                     .map(|cell| {
                         if basin.members.contains(&cell) {
                             cell.value.to_string()
@@ -150,32 +150,27 @@ impl Grid<u8> {
             };
 
             let mut pending: Vec<&Cell<u8>> = vec![head];
-            loop {
+            while let Some(cell) = pending.pop() {
                 // If pending is not empty
-                if let Some(cell) = pending.pop() {
-                    // Then pop the tail and push it onto members
-                    members.push(cell);
-                    // Mark that member as seen
-                    seen.insert(cell);
-                    // Get the non-nine-value neighbors
-                    for neighbor in cell
-                        .get_neighbors(self)
-                        .into_iter()
-                        .filter(|&neighbor| neighbor.value != 9)
-                    {
-                        // and if they haven't been seen already
-                        if !seen.contains(neighbor) {
-                            // Push them into the pending list
-                            pending.push(neighbor);
-                            // and "see" them
-                            seen.insert(neighbor);
-                        }
+                // Then pop the tail and push it onto members
+                members.push(cell);
+                // Mark that member as seen
+                seen.insert(cell);
+                // Get the non-nine-value neighbors
+                for neighbor in cell
+                    .get_neighbors(self)
+                    .into_iter()
+                    .filter(|&neighbor| neighbor.value != 9)
+                {
+                    // and if they haven't been seen already
+                    if !seen.contains(neighbor) {
+                        // Push them into the pending list
+                        pending.push(neighbor);
+                        // and "see" them
+                        seen.insert(neighbor);
                     }
-                // If pending IS empty
-                } else {
-                    // members is now complete
-                    break;
                 }
+                // If pending IS empty
             }
             basins.push(Basin { members });
         }
@@ -241,7 +236,7 @@ fn solve_part1(input: Input<u8>) -> u64 {
 fn solve_part2(input: Input<u8>) -> u64 {
     let grid = input.grid;
     let mut basins = grid.basins();
-    basins.sort_unstable_by(|a, b| a.size().cmp(&b.size()));
+    basins.sort_unstable_by_key(|basin| basin.size());
     basins
         .into_iter()
         .rev()
